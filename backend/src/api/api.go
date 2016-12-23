@@ -11,13 +11,15 @@ import (
 
 	// Postgresql driver
 	_ "github.com/lib/pq"
+	_ "github.com/mattn/go-sqlite3"
 )
 
 //go:generate go-bindata -pkg api db db/migrations
 
 const (
-	defaultDbURL = "postgres://postgres@127.0.0.1:5432/coreroller?sslmode=disable&connect_timeout=10"
-	nowUTC       = dat.UnsafeString("now() at time zone 'utc'")
+	defaultDbURL    = "postgres://postgres@127.0.0.1:5432/coreroller?sslmode=disable&connect_timeout=10"
+	defaultDbDriver = "postgres"
+	nowUTC          = dat.UnsafeString("now() at time zone 'utc'")
 )
 
 var (
@@ -41,11 +43,14 @@ type API struct {
 // applying db migrations available.
 func New(options ...func(*API) error) (*API, error) {
 	api := &API{
-		dbDriver: "postgres",
+		dbDriver: os.Getenv("COREROLLER_DB_DRIVER"),
 		dbURL:    os.Getenv("COREROLLER_DB_URL"),
 	}
 	if api.dbURL == "" {
 		api.dbURL = defaultDbURL
+	}
+	if api.dbDriver == "" {
+		api.dbDriver = defaultDbDriver
 	}
 
 	var err error
@@ -73,7 +78,7 @@ func New(options ...func(*API) error) (*API, error) {
 		AssetDir: AssetDir,
 		Dir:      "db/migrations",
 	}
-	if _, err := migrate.Exec(api.db.DB, "postgres", migrations, migrate.Up); err != nil {
+	if _, err := migrate.Exec(api.db.DB, api.dbDriver, migrations, migrate.Up); err != nil {
 		return nil, err
 	}
 
